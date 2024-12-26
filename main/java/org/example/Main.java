@@ -18,7 +18,7 @@ public class Main {
         seats.put("2C", new SeatInfo(true, 100.0));
 
         CompletableFuture<CopyOnWriteArrayList<String>> availableSeatsTask = CompletableFuture.supplyAsync(() -> {
-            System.out.println("Отримуємо вільні місця...");
+            System.out.println("We get free places...");
             CopyOnWriteArrayList<String> result = new CopyOnWriteArrayList<String>();
             seats.forEach((key, value) -> {
                 if(value.isAvailable)
@@ -27,31 +27,40 @@ public class Main {
             return result;
         });
 
-        CompletableFuture<List<Map.Entry<String, SeatInfo>>> priceSeatsTask = CompletableFuture.supplyAsync(() -> {
-            System.out.println("Отримуємо місця з мінімальною ціною...");
-            List<Map.Entry<String, SeatInfo>> sortedSeats = new CopyOnWriteArrayList<>(seats.entrySet());
-            sortedSeats.sort(Comparator.comparingDouble(entry -> entry.getValue().price));
-
-            return sortedSeats;
-        });
-        CompletableFuture<String> optimalSeatTask = availableSeatsTask.thenCombine(priceSeatsTask, (availableSeats, minPriceSeats) -> {
-            System.out.println("Шукаємо оптимальне місце...");
+        CompletableFuture<String> optimalSeatTask = availableSeatsTask.thenCompose(availableSeats -> {
+            System.out.println("We get seats with a minimum price...");
             if(!availableSeats.isEmpty())
             {
-                for (Map.Entry<String, SeatInfo> seat : minPriceSeats) {
-                    for (String availableSeat : availableSeats) {
-                        if (seat.getKey().equals(availableSeat)) {
-                            return availableSeat;
+                String seat = "";
+                SeatInfo result = null;
+                for (String availableSeat : availableSeats) {
+                    SeatInfo tmp = seats.get(availableSeat);
+                    if(result != null)
+                    {
+                        if(tmp.price < result.price)
+                        {
+                            result = tmp;
+                            seat = availableSeat;
                         }
                     }
+                    else {
+                        result = tmp;
+                        seat = availableSeat;
+                    }
                 }
+                return CompletableFuture.completedFuture(seat);
             }
-            return "";
+            return CompletableFuture.completedFuture("");
         });
-        if ((Objects.equals(optimalSeatTask.get(), ""))) {
-            System.out.println("There are not available seats!");
+
+
+
+        String optimalSeat = optimalSeatTask.join();
+        if (optimalSeat.isEmpty()) {
+            System.out.println("There are no available seats!");
         } else {
-            System.out.println("Your seat: " + optimalSeatTask.get());
+            seats.get(optimalSeat).isAvailable = false;
+            System.out.println("Your seat: " + optimalSeat);
         }
 
 
